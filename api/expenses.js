@@ -1,57 +1,53 @@
-// api/expenses.js
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// NOTE: This array persists only as long as the serverless container is "warm".
-// In a real application, you must replace this with a database connection.
-const expenses = [];
+type Expense = {
+  id: number;
+  amount: number;
+  description: string;
+  category: string;
+  date: string; // ISO string
+};
 
-export default function handler(req, res) {
-  const { method } = req;
+// In-memory store (reset whenever the function is cold-started/redeployed)
+const expenses: Expense[] = [];
+let nextId = 1;
 
-  // 1. Handle GET Request
-  if (method === 'GET') {
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method === 'GET') {
+    // Return all expenses
     return res.status(200).json({
       success: true,
       data: expenses,
     });
   }
 
-  // 2. Handle POST Request
-  if (method === 'POST') {
-    const { amount, description, category, date } = req.body;
+  if (req.method === 'POST') {
+    const { amount, description, category, date } = req.body || {};
 
-    // Validation: Check for missing fields
-    if (!amount || !description || !category || !date) {
+    // Basic validation for required fields
+    const missingFields: string[] = [];
+    if (amount === undefined || amount === null) missingFields.push('amount');
+    if (!description) missingFields.push('description');
+    if (!category) missingFields.push('category');
+    if (!date) missingFields.push('date');
+
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
-        message: 'Please provide amount, description, category, and date.',
+        missingFields,
       });
     }
 
-    // Create the new expense object
-    const newExpense = {
-      id: Date.now().toString(), // Simple ID generation
-      amount: parseFloat(amount),
-      description,
-      category,
-      date,
-      createdAt: new Date().toISOString(),
-    };
+    // Optional extra validation
+    const parsedAmount = Number(amount);
+    if (Number.isNaN(parsedAmount)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Field "amount" must be a valid number',
+      });
+    }
 
-    // Add to memory array
-    expenses.push(newExpense);
-
-    return res.status(201).json({
-      success: true,
-      message: 'Expense added successfully',
-      data: newExpense,
-    });
-  }
-
-  // 3. Handle Unsupported Methods
-  res.setHeader('Allow', ['GET', 'POST']);
-  return res.status(405).json({
-    success: false,
-    error: `Method ${method} Not Allowed`,
-  });
-}
+    const parsedDat
